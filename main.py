@@ -8,8 +8,10 @@ load_dotenv()
 # Get the token from the environment variables
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Replace 'YOUR_USER_ID' with your Discord user ID (as an integer)
-YOUR_USER_ID = ***REMOVED***  # Example: 182746352918273645
+# Sepcify your targets Discord user ID (as an integer)
+***REMOVED***_user_id = int(os.getenv('MY_USER_ID'))
+***REMOVED***_user_id = int(os.getenv('***REMOVED***_USER_ID'))
+***REMOVED***_user_id = int(os.getenv('***REMOVED***_USER_ID'))
 
 intents = discord.Intents.default()
 intents.message_content = True  # Required to read message content
@@ -26,10 +28,30 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    # Check if the message author is the specified user
-    if message.author.id == YOUR_USER_ID:
+    # Response if ***REMOVED*** messages
+    if message.author.id == ***REMOVED***_user_id:
         try:
             await message.reply("U Maniac")
+            print(f"Replied to {message.author.display_name} in #{message.channel.name}")
+        except discord.Forbidden:
+            print(f"Lacked permissions to reply in {message.channel.name}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    # Response if ***REMOVED*** messages
+    if message.author.id == ***REMOVED***_user_id:
+        try:
+            await message.reply("U Imbecile")
+            print(f"Replied to {message.author.display_name} in #{message.channel.name}")
+        except discord.Forbidden:
+            print(f"Lacked permissions to reply in {message.channel.name}")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    # Response if ***REMOVED*** messages
+    if message.author.id == ***REMOVED***_user_id:
+        try:
+            await message.reply("Cutie")
             print(f"Replied to {message.author.display_name} in #{message.channel.name}")
         except discord.Forbidden:
             print(f"Lacked permissions to reply in {message.channel.name}")
