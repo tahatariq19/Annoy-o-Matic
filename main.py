@@ -1,7 +1,13 @@
+import os
 import discord
+from dotenv import load_dotenv
 
-# Replace 'YOUR_BOT_TOKEN' with your actual bot token
-TOKEN = '***REMOVED***'
+# Load environment variables from .env file
+load_dotenv()
+
+# Get the token from the environment variables
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+
 # Replace 'YOUR_USER_ID' with your Discord user ID (as an integer)
 YOUR_USER_ID = ***REMOVED***  # Example: 182746352918273645
 
@@ -30,4 +36,4 @@ async def on_message(message):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-client.run(TOKEN)
+client.run(DISCORD_TOKEN)
