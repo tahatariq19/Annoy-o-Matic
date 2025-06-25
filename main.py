@@ -8,10 +8,14 @@ load_dotenv()
 # Get the token from the environment variables
 DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
 
-# Sepcify your targets Discord user ID (as an integer)
-***REMOVED***_user_id = int(os.getenv('MY_USER_ID'))
-***REMOVED***_user_id = int(os.getenv('***REMOVED***_USER_ID'))
-***REMOVED***_user_id = int(os.getenv('***REMOVED***_USER_ID'))
+# Define your user IDs and their corresponding replies
+# Fetching environment variables directly into the dictionary
+user_replies = {
+    int(os.getenv('USER_ID_1')): "Cutie", 
+    int(os.getenv('USER_ID_2')): "U Maniac",
+    int(os.getenv('USER_ID_3')): "U Imbecile",
+    int(os.getenv('USER_ID_4')): "King Man",
+}
 
 intents = discord.Intents.default()
 intents.message_content = True  # Required to read message content
@@ -28,30 +32,11 @@ async def on_message(message):
     if message.author == client.user:
         return
 
-    # Response if ***REMOVED*** messages
-    if message.author.id == ***REMOVED***_user_id:
-        try:
-            await message.reply("U Maniac")
-            print(f"Replied to {message.author.display_name} in #{message.channel.name}")
-        except discord.Forbidden:
-            print(f"Lacked permissions to reply in {message.channel.name}")
-        except Exception as e:
-            print(f"An error occurred: {e}")
+    reply_message = user_replies.get(message.author.id)
 
-    # Response if ***REMOVED*** messages
-    if message.author.id == ***REMOVED***_user_id:
+    if reply_message:  # Check if a reply message exists for the author
         try:
-            await message.reply("U Imbecile")
-            print(f"Replied to {message.author.display_name} in #{message.channel.name}")
-        except discord.Forbidden:
-            print(f"Lacked permissions to reply in {message.channel.name}")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-
-    # Response if ***REMOVED*** messages
-    if message.author.id == ***REMOVED***_user_id:
-        try:
-            await message.reply("Cutie")
+            await message.reply(reply_message)
             print(f"Replied to {message.author.display_name} in #{message.channel.name}")
         except discord.Forbidden:
             print(f"Lacked permissions to reply in {message.channel.name}")
