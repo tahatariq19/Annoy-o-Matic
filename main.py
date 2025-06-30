@@ -1,6 +1,7 @@
 #Import libraries
 import os
 import discord
+import random
 from dotenv import load_dotenv
 
 # Loads environment variables from .env file
@@ -18,18 +19,20 @@ if DISCORD_TOKEN is None:
 user_replies = {}
 user_id_1 = os.getenv('USER_ID_1')
 user_id_2 = os.getenv('USER_ID_2')
-user_id_3 = os.getenv('USER_ID_3')
-user_id_4 = os.getenv('USER_ID_4')
 
 if user_id_1 is not None:
-    user_replies[int(user_id_1)] = "Loser"
+    user_replies[int(user_id_1)] = "Unfunny"
 if user_id_2 is not None:
-    user_replies[int(user_id_2)] = "U Cutie"
-if user_id_3 is not None:
-    user_replies[int(user_id_3)] = "U Imbecile"
-if user_id_4 is not None:
-    user_replies[int(user_id_4)] = "Woah, a noob appears!"
+    user_replies[int(user_id_2)] = "Woah, a noob appears!"
 
+# List of random messages to annoy the user with
+random_messages = ["You dopehead", "Bad Boy", "Dingus"]
+
+# List of emojis to react with
+emojis = ["😂", "👍", "❤️", "🤔", "😁", "😆", "😅", "🤣", "😊", "😇", "😉", "😌", "😍", "🥰", "😘", "😗", "😙", "😚", "😋", "😛", "😝", "😜", "🤪", "🤨", "🧐", "🤓", "😎", "🤩", "🥳", "😏", "😒", "😞", "😔", "😟", "😕", "🙁", "☹️", "😣", "😖", "😫", "😩", "🥺", "😢", "😭", "😤", "😠", "😡", "🤬", "🤯", "😳", "🥵", "🥶", "😱", "😨", "😰", "😥", "😓", "🤗", "🤔", "🤭", "🤫", "🤥", "😶", "😐", "😑", "😬", "🙄", "😯", "😦", "😧", "😮", "😲", "🥱", "😴", "🤤", "😪", "😵", "🤐", "🥴", "🤢", "🤮", "🤧", "😷", "🤒", "🤕", "🤑", "🤠", "😈", "👿", "👹", "👺", "🤡", "💩", "👻", "💀", "☠️", "👽", "👾", "🤖", "🎃", "😺", "😸", "😹", "😻", "😼", "😽", "🙀", "😿", "😾"]
+
+
+#Sets the intents for the bot, which are essentially permissions that the bot needs to function properly.
 intents = discord.Intents.default()
 intents.message_content = True  # Required to read message content
 
@@ -41,20 +44,25 @@ async def on_ready():
 
 @client.event
 async def on_message(message):
-    # Ignore messages from the bot itself to prevent infinite loops
-    if message.author == client.user:
-        return
-
     # Grabs sender's user ID and checks for a corresponding reply message.
-    reply_message = user_replies.get(message.author.id)
+    user_specific_reply = user_replies.get(message.author.id)
 
-    if reply_message:  # Check if a reply message exists for the user_id
+    #Switch between annoying with message or reaction
+    message_or_reaction = random.choice(['message', 'reaction'])
+
+    if user_specific_reply: 
         try:
-            await message.reply({reply_message}) #Replies to the victim with annoyance :P
-            print(f"Replied to {message.author.display_name} in {message.channel.name}")
+            if message_or_reaction == 'message':
+                reply_message = random.choice(random_messages + [user_specific_reply])
+                await message.channel.send(reply_message) #Annoys the victim with their specific or random messages
+                print(f"Replied to {message.author.display_name} in {message.channel.name}")
+            elif message_or_reaction == 'reaction':
+                random_emoji = random.choice(emojis)
+                await message.add_reaction(random_emoji) #Annoys the victim with a random emoji reaction LP
+                print(f"Reacted to {message.author.display_name} in {message.channel.name}")
         except discord.Forbidden:
             print(f"Lacked permissions to reply in {message.channel.name}")
         except Exception as e:
             print(f"An error occurred: {e}")
 
-client.run(DISCORD_TOKEN)  # type: ignore[arg-type]
+client.run(DISCORD_TOKEN)  #Runs the bot with the provided token
