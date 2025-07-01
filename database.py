@@ -8,6 +8,7 @@ class AnnoyanceDB:
         self.cursor = None
         self._connect()
         self._create_table()
+        self._add_missing_columns() # New: Add this to handle schema changes
 
     def _connect(self):
         """Establishes a connection to the SQLite database."""
@@ -27,7 +28,10 @@ class AnnoyanceDB:
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS targets (
                     user_id INTEGER PRIMARY KEY,
-                    specific_reply TEXT
+                    specific_reply TEXT,          -- Specific message for the user
+                    specific_reaction TEXT,       -- Specific emoji for the user
+                    annoy_methods TEXT DEFAULT 'message,reaction', -- Comma-separated: message,reaction
+                    message_mode TEXT DEFAULT 'both' -- 'specific_only', 'random_only', 'both'
                 )
             ''')
             self.conn.commit()
@@ -35,19 +39,54 @@ class AnnoyanceDB:
         except sqlite3.Error as e:
             print(f"Error creating table: {e}")
 
-    def add_target(self, user_id: int, specific_reply: str):
-        """Adds or updates a target user with a specific reply."""
+    def _add_missing_columns(self):
+        """Adds new columns if they don't exist (for schema evolution)."""
+        if not self.conn:
+            return
+
+        # Check for 'specific_reaction'
+        try:
+            self.cursor.execute("SELECT specific_reaction FROM targets LIMIT 1")
+        except sqlite3.OperationalError:
+            self.cursor.execute("ALTER TABLE targets ADD COLUMN specific_reaction TEXT")
+            self.conn.commit()
+            print("Added 'specific_reaction' column.")
+
+        # Check for 'annoy_methods'
+        try:
+            self.cursor.execute("SELECT annoy_methods FROM targets LIMIT 1")
+        except sqlite3.OperationalError:
+            self.cursor.execute("ALTER TABLE targets ADD COLUMN annoy_methods TEXT DEFAULT 'message,reaction'")
+            self.conn.commit()
+            print("Added 'annoy_methods' column.")
+
+        # Check for 'message_mode'
+        try:
+            self.cursor.execute("SELECT message_mode FROM targets LIMIT 1")
+        except sqlite3.OperationalError:
+            self.cursor.execute("ALTER TABLE targets ADD COLUMN message_mode TEXT DEFAULT 'both'")
+            self.conn.commit()
+            print("Added 'message_mode' column.")
+
+
+    def add_target(self, user_id: int):
+        """Adds a target user without a specific reply/reaction (initial setup)."""
         if not self.conn:
             print("Cannot add target: No database connection.")
             return False
         try:
+            # Insert only user_id, other columns will use their default values
             self.cursor.execute(
-                "INSERT OR REPLACE INTO targets (user_id, specific_reply) VALUES (?, ?)",
-                (user_id, specific_reply)
+                "INSERT OR IGNORE INTO targets (user_id) VALUES (?)",
+                (user_id,)
             )
             self.conn.commit()
-            print(f"Added/updated target: {user_id}")
-            return True
+            if self.cursor.rowcount > 0:
+                print(f"Added new target: {user_id}")
+                return True
+            else:
+                print(f"Target {user_id} already exists.")
+                return False # Already exists, but consider it successful if it's just about existence
         except sqlite3.Error as e:
             print(f"Error adding target: {e}")
             return False
@@ -70,17 +109,120 @@ class AnnoyanceDB:
             print(f"Error removing target: {e}")
             return False
 
-    def get_all_targets(self):
-        """Fetches all target users and their specific replies."""
+    def update_specific_reply(self, user_id: int, specific_reply: str):
+        """Updates the specific text reply for a target user."""
         if not self.conn:
-            print("Cannot get targets: No database connection.")
+            print("Cannot update specific reply: No database connection.")
+            return False
+        try:
+            self.cursor.execute(
+                "UPDATE targets SET specific_reply = ? WHERE user_id = ?",
+                (specific_reply, user_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error updating specific reply: {e}")
+            return False
+
+    def update_specific_reaction(self, user_id: int, specific_reaction: str):
+        """Updates the specific emoji reaction for a target user."""
+        if not self.conn:
+            print("Cannot update specific reaction: No database connection.")
+            return False
+        try:
+            self.cursor.execute(
+                "UPDATE targets SET specific_reaction = ? WHERE user_id = ?",
+                (specific_reaction, user_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error updating specific reaction: {e}")
+            return False
+
+    def update_annoy_methods(self, user_id: int, methods: list):
+        """Updates the annoyance methods for a target user."""
+        if not self.conn:
+            print("Cannot update annoy methods: No database connection.")
+            return False
+        try:
+            # Store as comma-separated string
+            methods_str = ','.join(methods)
+            self.cursor.execute(
+                "UPDATE targets SET annoy_methods = ? WHERE user_id = ?",
+                (methods_str, user_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error updating annoy methods: {e}")
+            return False
+
+    def update_message_mode(self, user_id: int, mode: str):
+        """Updates the message mode for a target user ('specific_only', 'random_only', 'both')."""
+        if not self.conn:
+            print("Cannot update message mode: No database connection.")
+            return False
+        try:
+            self.cursor.execute(
+                "UPDATE targets SET message_mode = ? WHERE user_id = ?",
+                (mode, user_id)
+            )
+            self.conn.commit()
+            return self.cursor.rowcount > 0
+        except sqlite3.Error as e:
+            print(f"Error updating message mode: {e}")
+            return False
+
+    def get_target_settings(self, user_id: int):
+        """Fetches all settings for a specific target user."""
+        if not self.conn:
+            print("Cannot get target settings: No database connection.")
+            return None
+        try:
+            self.cursor.execute(
+                "SELECT user_id, specific_reply, specific_reaction, annoy_methods, message_mode FROM targets WHERE user_id = ?",
+                (user_id,)
+            )
+            row = self.cursor.fetchone()
+            if row:
+                # Convert annoy_methods string back to list
+                methods_list = row[3].split(',') if row[3] else []
+                return {
+                    "user_id": row[0],
+                    "specific_reply": row[1],
+                    "specific_reaction": row[2],
+                    "annoy_methods": methods_list,
+                    "message_mode": row[4]
+                }
+            return None
+        except sqlite3.Error as e:
+            print(f"Error fetching target settings: {e}")
+            return None
+
+    def get_all_targets(self):
+        """Fetches all target users and their detailed settings."""
+        if not self.conn:
+            print("Cannot get all targets: No database connection.")
             return {}
         try:
-            self.cursor.execute("SELECT user_id, specific_reply FROM targets")
+            self.cursor.execute(
+                "SELECT user_id, specific_reply, specific_reaction, annoy_methods, message_mode FROM targets"
+            )
             rows = self.cursor.fetchall()
-            return {user_id: specific_reply for user_id, specific_reply in rows}
+            all_targets_settings = {}
+            for row in rows:
+                methods_list = row[3].split(',') if row[3] else []
+                all_targets_settings[row[0]] = {
+                    "specific_reply": row[1],
+                    "specific_reaction": row[2],
+                    "annoy_methods": methods_list,
+                    "message_mode": row[4]
+                }
+            return all_targets_settings
         except sqlite3.Error as e:
-            print(f"Error fetching targets: {e}")
+            print(f"Error fetching all targets: {e}")
             return {}
 
     def close(self):
@@ -91,22 +233,35 @@ class AnnoyanceDB:
 
 # Example Usage (for testing the database.py directly)
 if __name__ == "__main__":
-    db = AnnoyanceDB()
+    db = AnnoyanceDB(db_name='test_annoy_o_matic.db') # Use a separate test DB
 
-    # Add some targets
-    db.add_target(123456789012345678, "You are my favorite target!")
-    db.add_target(987654321098765432, "Get annoyed!")
-    db.add_target(123456789012345678, "Updated message for favorite target.") # Update existing
+    # Add a target
+    db.add_target(123)
+    db.add_target(456)
+
+    # Set specific reply
+    db.update_specific_reply(123, "Hello there, annoyance!")
+
+    # Set specific reaction
+    db.update_specific_reaction(123, "👋")
+
+    # Set annoyance methods
+    db.update_annoy_methods(123, ['message']) # Only messages
+    db.update_annoy_methods(456, ['reaction', 'message']) # Both
+
+    # Set message mode
+    db.update_message_mode(123, 'specific_only')
+    db.update_message_mode(456, 'random_only')
+
+    # Get settings for user 123
+    settings_123 = db.get_target_settings(123)
+    print("\nSettings for user 123:", settings_123)
 
     # Get all targets
-    current_targets = db.get_all_targets()
-    print("Current targets:", current_targets)
+    all_targets = db.get_all_targets()
+    print("\nAll targets:", all_targets)
 
-    # Remove a target
-    db.remove_target(987654321098765432)
-
-    # Get all targets again
-    current_targets = db.get_all_targets()
-    print("Current targets after removal:", current_targets)
+    db.remove_target(123)
+    db.remove_target(456)
 
     db.close()
