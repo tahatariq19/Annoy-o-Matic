@@ -5,6 +5,7 @@ venv/
 *.out
 *.pyc
 *.log
+*.db
 __pycache__/
 
 # IDE specific files
