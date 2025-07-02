@@ -3,6 +3,8 @@ import os
 import discord
 import random
 import re # Import regex for emoji parsing
+import csv
+from io import StringIO
 from dotenv import load_dotenv
 from discord.ext import commands
 from discord import app_commands
@@ -108,8 +110,8 @@ async def on_message(message):
 
                 if reply_options:
                     reply_message = random.choice(reply_options)
-                    await message.channel.send(reply_message)
-                    print(f"Replied to {message.author.display_name} in {message.channel.name} with message.")
+                    await message.reply(reply_message)
+                    print(f"Replied to {message.author.display_name} in {message.channel.name} with message (as reply).")
                 else:
                     print(f"No message options available for {message.author.display_name} with mode '{message_mode}'.")
 
@@ -162,15 +164,17 @@ def parse_emojis(text: str):
 @app_commands.describe(user="The user to add to the annoyance list.")
 async def settarget(interaction: discord.Interaction, user: discord.Member):
     success = db.add_target(user.id)
+    settings = db.get_target_settings(user.id)
     if success:
-        target_settings_cache[user.id] = db.get_target_settings(user.id)
+        if settings is not None:
+            target_settings_cache[user.id] = settings
         await interaction.response.send_message(
             f"Successfully added {user.mention} to the annoyance list. "
             "Use `/setannoyancemessage`, `/setannoyancereaction`, `/setannoyancemethods`, "
             "and `/setmessagemode` to configure their annoyances."
         )
-    elif db.get_target_settings(user.id):
-         await interaction.response.send_message(
+    elif settings is not None:
+        await interaction.response.send_message(
             f"{user.mention} is already an annoyance target. Use other commands to configure them.",
             ephemeral=True
         )
@@ -181,23 +185,27 @@ async def settarget(interaction: discord.Interaction, user: discord.Member):
         )
 
 # Command 2: Set specific annoyance messages
-@bot.tree.command(name="setannoyancemessage", description="Set one or more specific text messages (comma-separated) to annoy a user with.")
+@bot.tree.command(name="setannoyancemessage", description="Set specific annoyance messages for a user.")
 @app_commands.describe(
     user="The target user.",
-    messages="Comma-separated list of specific messages. Leave empty to clear."
+    messages="Semicolon-separated or quoted messages."
 )
-async def setannoyancemessage(interaction: discord.Interaction, user: discord.Member, messages: str = None):
+async def setannoyancemessage(interaction: discord.Interaction, user: discord.Member, messages: str = ""):
     if user.id not in target_settings_cache:
         await interaction.response.send_message(f"{user.mention} is not an annoyance target. Use `/settarget` first.", ephemeral=True)
         return
 
+    message_list = []
     if messages:
-        # Split the input string by commas and strip whitespace
-        message_list = [m.strip() for m in messages.split(',') if m.strip()]
-        if not message_list: # If input was just commas or whitespace
-            message_list = []
-    else:
-        message_list = [] # Clear messages if no input
+        # Support quoted messages with commas, or semicolon-separated
+        # Try CSV parsing first (handles quoted strings)
+        try:
+            reader = csv.reader(StringIO(messages), delimiter=';', skipinitialspace=True)
+            message_list = [m.strip() for m in next(reader) if m.strip()]
+        except Exception:
+            # Fallback: split by semicolon
+            message_list = [m.strip() for m in messages.split(';') if m.strip()]
+    # else: message_list stays empty (clear)
 
     success = db.update_specific_reply(user.id, message_list)
     if success:
@@ -217,7 +225,7 @@ async def setannoyancemessage(interaction: discord.Interaction, user: discord.Me
     user="The target user.",
     emojis_input="Comma-separated list of emojis (e.g., 😂, <:custom_emoji:12345>). Leave empty to clear."
 )
-async def setannoyancereaction(interaction: discord.Interaction, user: discord.Member, emojis_input: str = None):
+async def setannoyancereaction(interaction: discord.Interaction, user: discord.Member, emojis_input: str = ""):
     if user.id not in target_settings_cache:
         await interaction.response.send_message(f"{user.mention} is not an annoyance target. Use `/settarget` first.", ephemeral=True)
         return
