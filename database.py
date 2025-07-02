@@ -1,12 +1,14 @@
 # database.py
 import sqlite3
 import json # Import json to handle lists of strings
+from typing import Optional, Dict, Any, List
+from json import JSONDecodeError
 
 class AnnoyanceDB:
-    def __init__(self, db_name='annoy_o_matic.db'):
+    def __init__(self, db_name: str = 'annoy_o_matic.db'):
         self.db_name = db_name
-        self.conn = None
-        self.cursor = None
+        self.conn: Optional[sqlite3.Connection] = None
+        self.cursor: Optional[sqlite3.Cursor] = None
         self._connect()
         self._create_table()
         self._add_missing_columns() # New: Add this to handle schema changes
@@ -19,10 +21,12 @@ class AnnoyanceDB:
             print(f"Connected to database: {self.db_name}")
         except sqlite3.Error as e:
             print(f"Error connecting to database: {e}")
+            self.conn = None
+            self.cursor = None
 
     def _create_table(self):
         """Creates the 'targets' table if it doesn't exist."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot create table: No database connection.")
             return
         try:
@@ -42,7 +46,7 @@ class AnnoyanceDB:
 
     def _add_missing_columns(self):
         """Adds new columns if they don't exist (for schema evolution)."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             return
 
         # Check for 'specific_reaction' (already added in previous version, keeping for context)
@@ -69,15 +73,12 @@ class AnnoyanceDB:
             self.conn.commit()
             print("Added 'message_mode' column.")
 
-
-    def add_target(self, user_id: int):
+    def add_target(self, user_id: int) -> bool:
         """Adds a target user without a specific reply/reaction (initial setup)."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot add target: No database connection.")
             return False
         try:
-            # Insert only user_id, other columns will use their default values
-            # Initialize specific_reply and specific_reaction as empty JSON lists
             self.cursor.execute(
                 "INSERT OR IGNORE INTO targets (user_id, specific_reply, specific_reaction) VALUES (?, ?, ?)",
                 (user_id, json.dumps([]), json.dumps([]))
@@ -93,9 +94,9 @@ class AnnoyanceDB:
             print(f"Error adding target: {e}")
             return False
 
-    def remove_target(self, user_id: int):
+    def remove_target(self, user_id: int) -> bool:
         """Removes a target user from the database."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot remove target: No database connection.")
             return False
         try:
@@ -111,13 +112,12 @@ class AnnoyanceDB:
             print(f"Error removing target: {e}")
             return False
 
-    def update_specific_reply(self, user_id: int, specific_replies: list):
+    def update_specific_reply(self, user_id: int, specific_replies: List[str]) -> bool:
         """Updates the specific text replies for a target user."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot update specific reply: No database connection.")
             return False
         try:
-            # Store list as JSON string
             self.cursor.execute(
                 "UPDATE targets SET specific_reply = ? WHERE user_id = ?",
                 (json.dumps(specific_replies), user_id)
@@ -128,13 +128,12 @@ class AnnoyanceDB:
             print(f"Error updating specific reply: {e}")
             return False
 
-    def update_specific_reaction(self, user_id: int, specific_reactions: list):
+    def update_specific_reaction(self, user_id: int, specific_reactions: List[str]) -> bool:
         """Updates the specific emoji reactions for a target user."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot update specific reaction: No database connection.")
             return False
         try:
-            # Store list as JSON string
             self.cursor.execute(
                 "UPDATE targets SET specific_reaction = ? WHERE user_id = ?",
                 (json.dumps(specific_reactions), user_id)
@@ -145,13 +144,12 @@ class AnnoyanceDB:
             print(f"Error updating specific reaction: {e}")
             return False
 
-    def update_annoy_methods(self, user_id: int, methods: list):
+    def update_annoy_methods(self, user_id: int, methods: List[str]) -> bool:
         """Updates the annoyance methods for a target user."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot update annoy methods: No database connection.")
             return False
         try:
-            # Store as comma-separated string
             methods_str = ','.join(methods)
             self.cursor.execute(
                 "UPDATE targets SET annoy_methods = ? WHERE user_id = ?",
@@ -163,9 +161,9 @@ class AnnoyanceDB:
             print(f"Error updating annoy methods: {e}")
             return False
 
-    def update_message_mode(self, user_id: int, mode: str):
+    def update_message_mode(self, user_id: int, mode: str) -> bool:
         """Updates the message mode for a target user ('specific_only', 'random_only', 'both')."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot update message mode: No database connection.")
             return False
         try:
@@ -179,9 +177,9 @@ class AnnoyanceDB:
             print(f"Error updating message mode: {e}")
             return False
 
-    def get_target_settings(self, user_id: int):
+    def get_target_settings(self, user_id: int) -> Optional[Dict[str, Any]]:
         """Fetches all settings for a specific target user."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot get target settings: No database connection.")
             return None
         try:
@@ -191,13 +189,9 @@ class AnnoyanceDB:
             )
             row = self.cursor.fetchone()
             if row:
-                # Convert annoy_methods string back to list
                 methods_list = row[3].split(',') if row[3] else []
-                
-                # Load JSON strings back to Python lists
                 specific_replies = json.loads(row[1]) if row[1] else []
                 specific_reactions = json.loads(row[2]) if row[2] else []
-
                 return {
                     "user_id": row[0],
                     "specific_reply": specific_replies, # Now a list
@@ -206,13 +200,13 @@ class AnnoyanceDB:
                     "message_mode": row[4]
                 }
             return None
-        except (sqlite3.Error, json.JSONDecodeError) as e:
+        except (sqlite3.Error, JSONDecodeError) as e:
             print(f"Error fetching target settings: {e}")
             return None
 
-    def get_all_targets(self):
+    def get_all_targets(self) -> Dict[int, Dict[str, Any]]:
         """Fetches all target users and their detailed settings."""
-        if not self.conn:
+        if not self.conn or not self.cursor:
             print("Cannot get all targets: No database connection.")
             return {}
         try:
@@ -220,14 +214,11 @@ class AnnoyanceDB:
                 "SELECT user_id, specific_reply, specific_reaction, annoy_methods, message_mode FROM targets"
             )
             rows = self.cursor.fetchall()
-            all_targets_settings = {}
+            all_targets_settings: Dict[int, Dict[str, Any]] = {}
             for row in rows:
                 methods_list = row[3].split(',') if row[3] else []
-                
-                # Load JSON strings back to Python lists
                 specific_replies = json.loads(row[1]) if row[1] else []
                 specific_reactions = json.loads(row[2]) if row[2] else []
-
                 all_targets_settings[row[0]] = {
                     "specific_reply": specific_replies, # Now a list
                     "specific_reaction": specific_reactions, # Now a list
@@ -235,7 +226,7 @@ class AnnoyanceDB:
                     "message_mode": row[4]
                 }
             return all_targets_settings
-        except (sqlite3.Error, json.JSONDecodeError) as e:
+        except (sqlite3.Error, JSONDecodeError) as e:
             print(f"Error fetching all targets: {e}")
             return {}
 
@@ -280,7 +271,6 @@ if __name__ == "__main__":
     db.update_specific_reaction(123, [])
     settings_123_cleared = db.get_target_settings(123)
     print("\nSettings for user 123 after clearing:", settings_123_cleared)
-
 
     db.remove_target(123)
     db.remove_target(456)
