@@ -18,30 +18,42 @@ A Discord bot that playfully annoys selected users with custom messages and emoj
 - A Discord Bot Token ([Discord Developer Portal](https://discord.com/developers/applications))
 - Enable **MESSAGE CONTENT INTENT** and **SERVER MEMBERS INTENT** for your bot
 
-### Installation
+### Installation & Running
 
 1. **Clone & Setup:**
 
     ```bash
     git clone <your-repo-url>
+    ```
+
+    ```bash
     cd annoybot
+    ```
+
+    ```bash
     python -m venv .venv
-    # Activate venv:
-    # Windows:
+    ```
+
+    ```bash
+    # Activate venv on Winidows:
     .venv\Scripts\activate
-    # macOS/Linux:
+
+    # Activate venv on macOS/Linux:
     source .venv/bin/activate
+    ```
+
+    ```bash
     pip install -r requirements.txt
     ```
 
 2. **Configure:**
     - Create a `.env` file with your `DISCORD_TOKEN` (see `.env.example` if present).
 
-### Running
+3. **Running**
 
-```bash
-python main.py
-```
+    ```bash
+    python main.py
+    ```
 
 ## 🛠 Usage
 
