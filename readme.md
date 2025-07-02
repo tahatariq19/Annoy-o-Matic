@@ -1,70 +1,63 @@
 # Annoy-o-Matic 🤖
 
-A simple Discord bot that delivers custom, repetitive replies to specified users for lighthearted, disruptive fun.
+A Discord bot that playfully annoys selected users with custom messages and emoji reactions.
 
 ## ✨ Features
 
-* **Customizable Replies:** Configured through environment variables for personalized responses.
-* **Targeted Annoyance:** Responds specifically to predefined user IDs.
+- **Custom Annoyance:** Reply or react to users with random or specific messages/emojis.
+- **Slash Commands:** Add/remove targets, set messages/reactions, configure annoyance methods and modes.
+- **Per-user Settings:** Each target can have their own annoyance configuration.
+- **Flexible Message Input:** Set specific messages using semicolons or quoted strings (commas allowed inside quotes).
+- **Persistent Storage:** All settings are saved in a local SQLite database.
 
-## 🚀 Getting Started
-
-Follow these steps to get your bot running.
+## 🚀 Quick Start
 
 ### Prerequisites
 
-* Python 3.8+
-* Git
-* A Discord Bot Application (from [Discord Developer Portal](https://discord.com/developers/applications) - remember to enable **MESSAGE CONTENT INTENT** in your bot's settings).
+- Python 3.8+
+- A Discord Bot Token ([Discord Developer Portal](https://discord.com/developers/applications))
+- Enable **MESSAGE CONTENT INTENT** and **SERVER MEMBERS INTENT** for your bot
 
 ### Installation
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/tahatariq19/Annoy-o-Matic.git
-    cd Annoy-o-Matic
-    ```
+1. **Clone & Setup:**
 
-2.  **Set Up Virtual Environment:**
     ```bash
+    git clone <your-repo-url>
+    cd annoybot
     python -m venv .venv
-    # On Windows:
+    # Activate venv:
+    # Windows:
     .venv\Scripts\activate
-    # On macOS/Linux:
+    # macOS/Linux:
     source .venv/bin/activate
-    ```
-
-3.  **Install Dependencies:**
-    ```bash
     pip install -r requirements.txt
     ```
 
-### Configuration
+2. **Configure:**
+    - Create a `.env` file with your `DISCORD_TOKEN` (see `.env.example` if present).
 
-1.  **Create `.env` file:**
-    Copy the example environment file:
-    ```bash
-    cp .env.example .env
-    ```
-
-2.  **Edit `.env`:**
-    Open `.env` and fill in your values.
-
-    ```
-    # .env file
-    DISCORD_TOKEN=YOUR_DISCORD_BOT_TOKEN
-    USER_ID_1=YOUR_DISCORD_USER_ID_1
-    USER_ID_2=YOUR_DISCORD_USER_ID_2
-    ```
-    *(Replace `YOUR_DISCORD_BOT_TOKEN` with your bot's token and `YOUR_DISCORD_USER_ID_X` with actual Discord numeric user IDs.)*
-
-    **Note:** You can adjust the number of `USER_ID_X` variables (e.g., `USER_ID_3`, `USER_ID_4`, etc.) in your `.env` file to match your desired number of targets.
-
-3.  **Customize Reply Messages:**
-    Remember to modify the corresponding reply messages (what the bot says) for each `USER_ID` directly within the `main.py` file to suit your preferences.
-
-### Running the Bot
+### Running
 
 ```bash
-# Ensure your virtual environment is activated
 python main.py
+```
+
+## 🛠 Usage
+
+- Use `/settarget` to add a user to the annoyance list.
+- Use `/setannoyancemessage` to set custom messages (semicolon-separated or quoted for messages with commas).
+- Use `/setannoyancereaction` to set custom emoji reactions (comma-separated).
+- Use `/setannoyancemethods` and `/setmessagemode` to configure how users are annoyed.
+- Use `/removetarget` to stop annoying a user.
+- Use `/listtargets` to view all annoyance targets and their settings.
+
+## ⚠️ Notes
+
+- The bot stores data in a local SQLite database (`annoy_o_matic.db`).
+- Do **not** commit your `.db` or `.env` files to git.
+- For production or multi-server use, consider a centralized database and process manager.
+
+---
+
+Enjoy annoying your friends (with consent)!
