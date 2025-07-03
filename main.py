@@ -19,7 +19,7 @@ if DISCORD_TOKEN is None:
 
 TEST_GUILD_ID = os.getenv('TEST_GUILD_ID') # For guild-specific syncing during development
 
-# --- INITIALIZE DATABASE ---
+# --- INITIALIZE DATABASE --- #
 db = AnnoyanceDB()
 
 # List of random messages to annoy the user with
@@ -158,7 +158,7 @@ def parse_emojis(text: str):
     return emojis
 
 
-# --- SLASH COMMANDS ---
+# --- SLASH COMMANDS --- #
 
 @bot.tree.command(name="settarget", description="Add a user to the annoyance list.", guild=MY_GUILD if MY_GUILD else None)
 @app_commands.describe(user="The user to add to the annoyance list.")
@@ -362,4 +362,10 @@ async def listtargets(interaction: discord.Interaction):
     await interaction.response.send_message(target_list_str, ephemeral=True)
 
 
-bot.run(DISCORD_TOKEN)
+# --- Run the bot --- #
+if __name__ == '__main__':
+    try:
+        bot.run(DISCORD_TOKEN)
+    except Exception as e:
+        print(f"Failed to start Discord bot: {e}")
+        print("Please ensure your DISCORD_BOT_TOKEN is correct and has 'Message Content Intent' enabled.")
