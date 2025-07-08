@@ -163,26 +163,36 @@ def parse_emojis(text: str):
 @bot.tree.command(name="settarget", description="Add a user to the annoyance list.", guild=MY_GUILD if MY_GUILD else None)
 @app_commands.describe(user="The user to add to the annoyance list.")
 async def settarget(interaction: discord.Interaction, user: discord.Member):
-    success = db.add_target(user.id)
-    settings = db.get_target_settings(user.id)
-    if success:
-        if settings is not None:
-            target_settings_cache[user.id] = settings
-        await interaction.response.send_message(
-            f"Successfully added {user.mention} to the annoyance list. "
-            "Use `/setannoyancemessage`, `/setannoyancereaction`, `/setannoyancemethods`, "
-            "and `/setmessagemode` to configure their annoyances."
-        )
-    elif settings is not None:
+    if user.id in target_settings_cache:
         await interaction.response.send_message(
             f"{user.mention} is already an annoyance target. Use other commands to configure them.",
             ephemeral=True
         )
+        return
+
+    is_newly_added = db.add_target(user.id)
+    if is_newly_added:
+        settings = db.get_target_settings(user.id)
+        if settings:
+            target_settings_cache[user.id] = settings
+            await interaction.response.send_message(
+                f"Successfully added {user.mention} to the annoyance list. "
+                "Use `/setannoyancemessage`, `/setannoyancereaction`, `/setannoyancemethods`, "
+                "and `/setmessagemode` to configure their annoyances."
+            )
+        else:
+            await interaction.response.send_message(
+                f"Failed to add {user.mention}. Could not retrieve settings after adding. Check bot logs.",
+                ephemeral=True
+            )
     else:
-        await interaction.response.send_message(
-            f"Failed to add {user.mention} as an annoyance target. Check bot logs for errors.",
-            ephemeral=True
-        )
+        # User already existed in DB, but not cache. Load settings and inform the issuer.
+        settings = db.get_target_settings(user.id)
+        response_message = f"{user.mention} is already an annoyance target. Use other commands to configure them." if settings \
+            else f"Failed to add {user.mention} as an annoyance target. Check bot logs for errors."
+        if settings:
+            target_settings_cache[user.id] = settings
+        await interaction.response.send_message(response_message, ephemeral=True)
 
 # Command 2: Set specific annoyance messages
 @bot.tree.command(name="setannoyancemessage", description="Set specific annoyance messages for a user.")
