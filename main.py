@@ -2,7 +2,7 @@
 import os
 import discord
 import random
-import re # Import regex for emoji parsing
+import regex as re # Import regex for emoji parsing
 import csv
 from io import StringIO
 from dotenv import load_dotenv
@@ -146,7 +146,7 @@ def parse_emojis(text: str):
     # Regex to find standard unicode emojis or custom Discord emojis
     # Note: This is a simplified regex, full unicode emoji regex is complex.
     # For custom emojis, it looks for <:name:id> or <a:name:id>
-    emoji_pattern = re.compile(r'<a?:[a-zA-Z0-9_]+:[0-9]+>|\p{Emoji_Presentation}|\p{Extended_Pictographic}', re.UNICODE)
+    emoji_pattern = re.compile(r'<a?:[a-zA-Z0-9_]+:[0-9]+>|\p{Emoji}', re.UNICODE)
     
     # Split by commas and then try to find emojis in each part
     parts = [part.strip() for part in text.split(',')]
