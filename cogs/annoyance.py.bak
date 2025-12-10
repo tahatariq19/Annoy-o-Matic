@@ -1,0 +1,149 @@
+import discord
+from discord.ext import commands
+from discord import app_commands
+import random
+import re
+import csv
+from io import StringIO
+import logging
+
+logger = logging.getLogger(__name__)
+
+class AnnoyanceCog(commands.Cog):
+    def __init__(self, bot):
+        self.bot = bot
+        self.random_messages = ["You dopehead", "Bad Boy", "Dingus", "Still here?", "Annoyed yet?", "Ping!", "Why are you like this?"]
+        # Basic emoji set fallback
+        self.emojis = ["😂", "👍", "🤔", "🙄", "🤡", "💩", "👻", "💀", "🤖"]
+        self.cache = {}
+
+    async def cog_load(self):
+        """Called when the Cog is loaded. Hydrate cache from DB."""
+        await self.refresh_cache()
+        logger.info("AnnoyanceCog loaded and cache hydrated.")
+
+    async def refresh_cache(self):
+        """Reloads settings from the async DB into memory."""
+        self.cache = await self.bot.db.get_all_targets()
+
+    # --- HELPERS ---
+    def parse_emojis(self, text: str):
+        emojis_found = []
+        emoji_pattern = re.compile(r'<a?:[a-zA-Z0-9_]+:[0-9]+>|\p{Emoji}', re.UNICODE)
+        parts = [part.strip() for part in text.split(',')]
+        for part in parts:
+            emojis_found.extend(emoji_pattern.findall(part))
+        return emojis_found
+
+    # --- LISTENER ---
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot:
+            return
+
+        settings = self.cache.get(message.author.id)
+        if not settings:
+            return
+
+        # Annoyance Logic
+        try:
+            methods = settings.get("annoy_methods", [])
+            mode = settings.get("message_mode", "both")
+            
+            # Decide what to do
+            available_actions = []
+            
+            if 'message' in methods:
+                available_actions.append('message')
+            if 'reaction' in methods:
+                available_actions.append('reaction')
+                
+            if not available_actions:
+                return
+
+            action = random.choice(available_actions)
+
+            if action == 'message':
+                replies = []
+                specifics = settings.get("specific_reply", [])
+                
+                if mode == 'specific_only':
+                    replies = specifics
+                elif mode == 'random_only':
+                    replies = self.random_messages
+                else: # both
+                    replies = specifics + self.random_messages
+                
+                if replies:
+                    await message.reply(random.choice(replies))
+
+            elif action == 'reaction':
+                specific_reactions = settings.get("specific_reaction", [])
+                pool = specific_reactions if specific_reactions else self.emojis
+                if pool:
+                    await message.add_reaction(random.choice(pool))
+
+        except Exception as e:
+            logger.error(f"Error annoying user {message.author.id}: {e}")
+
+    # --- COMMANDS ---
+
+    @app_commands.command(name="settarget", description="Add a user to the annoyance list.")
+    @app_commands.describe(user="The user to annoy.")
+    async def settarget(self, interaction: discord.Interaction, user: discord.Member):
+        if user.id in self.cache:
+            await interaction.response.send_message(f"{user.mention} is already a target.", ephemeral=True)
+            return
+        
+        if await self.bot.db.add_target(user.id):
+            await self.refresh_cache()
+            await interaction.response.send_message(f"😈 Target acquired: {user.mention}. Use other commands to configure the torture.")
+        else:
+            await interaction.response.send_message("Failed to add target (Database Error).", ephemeral=True)
+
+    @app_commands.command(name="removetarget", description="Stop annoying a user.")
+    async def removetarget(self, interaction: discord.Interaction, user: discord.Member):
+        if await self.bot.db.remove_target(user.id):
+            await self.refresh_cache()
+            await interaction.response.send_message(f"😇 {user.mention} has been granted mercy.")
+        else:
+            await interaction.response.send_message(f"{user.mention} was not in the target list.", ephemeral=True)
+
+    @app_commands.command(name="listtargets", description="Show the hitlist.")
+    async def listtargets(self, interaction: discord.Interaction):
+        if not self.cache:
+            await interaction.response.send_message("The hitlist is empty. Peace reigns.", ephemeral=True)
+            return
+        
+        txt = "**🎯 Current Targets:**\n"
+        for uid, data in self.cache.items():
+            user = interaction.guild.get_member(uid)
+            name = user.display_name if user else f"Unknown({uid})"
+            txt += f"- **{name}**: Mode=`{data.get('message_mode')}`, Methods=`{data.get('annoy_methods')}`\n"
+        
+        await interaction.response.send_message(txt, ephemeral=True)
+
+    @app_commands.command(name="setannoyancemessage", description="Set custom messages (semicolon separated).")
+    async def setmessages(self, interaction: discord.Interaction, user: discord.Member, messages: str):
+        msg_list = [m.strip() for m in messages.split(';') if m.strip()]
+        if await self.bot.db.update_settings(user.id, "specific_reply", msg_list):
+            await self.refresh_cache()
+            await interaction.response.send_message(f"Updated messages for {user.mention}.")
+        else:
+            await interaction.response.send_message("Database error.", ephemeral=True)
+
+    @app_commands.command(name="setannoyancereaction", description="Set custom reactions (comma separated).")
+    async def setreactions(self, interaction: discord.Interaction, user: discord.Member, emojis: str):
+        parsed = self.parse_emojis(emojis)
+        if not parsed:
+            await interaction.response.send_message("No valid emojis found.", ephemeral=True)
+            return
+            
+        if await self.bot.db.update_settings(user.id, "specific_reaction", parsed):
+            await self.refresh_cache()
+            await interaction.response.send_message(f"Updated reactions for {user.mention}.")
+        else:
+            await interaction.response.send_message("Database error.", ephemeral=True)
+
+async def setup(bot):
+    await bot.add_cog(AnnoyanceCog(bot))
