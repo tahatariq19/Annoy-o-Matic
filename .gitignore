@@ -1,15 +1,12 @@
-# Git ignore rules for Python projects
-.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
 venv/
 .env
-*.out
-*.pyc
-*.log
 *.db
-__pycache__/
-
-# IDE specific files
+.DS_Store
 .vscode/
 .idea/
-.DS_Store
-Thumbs.db

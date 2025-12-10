@@ -1,0 +1,132 @@
+import aiosqlite
+import json
+import logging
+from typing import Optional, Dict, Any, List
+from json import JSONDecodeError
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class AnnoyanceDB:
+    def __init__(self, db_name: str = 'annoy_o_matic.db'):
+        self.db_name = db_name
+        self.conn: Optional[aiosqlite.Connection] = None
+
+    async def connect(self):
+        """Establishes an async connection to the SQLite database."""
+        try:
+            self.conn = await aiosqlite.connect(self.db_name)
+            logger.info(f"Connected to database: {self.db_name}")
+            await self._create_table()
+        except Exception as e:
+            logger.error(f"Error connecting to database: {e}")
+            self.conn = None
+
+    async def _create_table(self):
+        """Creates the 'targets' table if it doesn't exist."""
+        if not self.conn:
+            return
+        
+        query = '''
+            CREATE TABLE IF NOT EXISTS targets (
+                user_id INTEGER PRIMARY KEY,
+                specific_reply TEXT,          -- Stores JSON string of messages
+                specific_reaction TEXT,       -- Stores JSON string of emojis
+                annoy_methods TEXT DEFAULT 'message,reaction', 
+                message_mode TEXT DEFAULT 'both'
+            )
+        '''
+        try:
+            await self.conn.execute(query)
+            await self.conn.commit()
+            logger.info("Table 'targets' ensured.")
+            await self._ensure_columns()
+        except Exception as e:
+            logger.error(f"Error creating table: {e}")
+
+    async def _ensure_columns(self):
+        """Migrates schema if columns are missing."""
+        if not self.conn: return
+        
+        # Helper to check and add column
+        async def add_col_if_missing(col_name: str, col_def: str):
+            try:
+                await self.conn.execute(f"SELECT {col_name} FROM targets LIMIT 1")
+            except Exception:
+                logger.warning(f"Column '{col_name}' missing. Adding it...")
+                await self.conn.execute(f"ALTER TABLE targets ADD COLUMN {col_name} {col_def}")
+                await self.conn.commit()
+
+        await add_col_if_missing("specific_reaction", "TEXT")
+        await add_col_if_missing("annoy_methods", "TEXT DEFAULT 'message,reaction'")
+        await add_col_if_missing("message_mode", "TEXT DEFAULT 'both'")
+
+    async def add_target(self, user_id: int) -> bool:
+        if not self.conn: return False
+        try:
+            await self.conn.execute(
+                "INSERT OR IGNORE INTO targets (user_id, specific_reply, specific_reaction) VALUES (?, ?, ?)",
+                (user_id, json.dumps([]), json.dumps([]))
+            )
+            await self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error adding target {user_id}: {e}")
+            return False
+
+    async def remove_target(self, user_id: int) -> bool:
+        if not self.conn: return False
+        try:
+            cursor = await self.conn.execute("DELETE FROM targets WHERE user_id = ?", (user_id,))
+            await self.conn.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error removing target {user_id}: {e}")
+            return False
+
+    async def update_settings(self, user_id: int, field: str, value: Any) -> bool:
+        """Generic update method for settings."""
+        if not self.conn: return False
+        try:
+            # Value serialization if list
+            db_value = json.dumps(value) if isinstance(value, list) else value
+            
+            await self.conn.execute(
+                f"UPDATE targets SET {field} = ? WHERE user_id = ?",
+                (db_value, user_id)
+            )
+            await self.conn.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating {field} for {user_id}: {e}")
+            return False
+
+    async def get_all_targets(self) -> Dict[int, Dict[str, Any]]:
+        """Fetches all targets and parses their settings."""
+        if not self.conn: return {}
+        try:
+            async with self.conn.execute("SELECT user_id, specific_reply, specific_reaction, annoy_methods, message_mode FROM targets") as cursor:
+                rows = await cursor.fetchall()
+                
+            result = {}
+            for row in rows:
+                try:
+                    result[row[0]] = {
+                        "specific_reply": json.loads(row[1]) if row[1] else [],
+                        "specific_reaction": json.loads(row[2]) if row[2] else [],
+                        "annoy_methods": row[3].split(',') if row[3] else [],
+                        "message_mode": row[4]
+                    }
+                except JSONDecodeError:
+                    logger.warning(f"Failed to parse settings for user {row[0]}")
+                    continue
+            return result
+        except Exception as e:
+            logger.error(f"Error fetching targets: {e}")
+            return {}
+
+    async def close(self):
+        if self.conn:
+            await self.conn.close()
+            logger.info("Database connection closed.")
