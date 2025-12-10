@@ -1,75 +1,52 @@
-# Annoy-o-Matic 🤖
+# Annoy-o-Matic 🤖 (Async Edition ⚡)
 
 A Discord bot that playfully annoys selected users with custom messages and emoji reactions.
 
+**Now upgraded with Asynchronous I/O and Docker support!**
+
 ## ✨ Features
 
+- **⚡ Async Database:** rewritten using `aiosqlite` to prevent blocking the event loop.
+- **📝 Proper Logging:** Replaced `print` statements with the standard `logging` module.
+- **🐳 Dockerized:** Ready to deploy with a single container command.
 - **Custom Annoyance:** Reply or react to users with random or specific messages/emojis.
-- **Slash Commands:** Add/remove targets, set messages/reactions, configure annoyance methods and modes.
-- **Per-user Settings:** Each target can have their own annoyance configuration.
-- **Flexible Message Input:** Set specific messages using semicolons or quoted strings (commas allowed inside quotes).
-- **Persistent Storage:** All settings are saved in a local SQLite database.
+- **Slash Commands:** Fully supported configuration via Discord UI.
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### Option A: Docker (Recommended)
 
-- Python 3.8+
-- A Discord Bot Token ([Discord Developer Portal](https://discord.com/developers/applications))
-- Enable **MESSAGE CONTENT INTENT** and **SERVER MEMBERS INTENT** for your bot
-
-### Installation & Running
-
-1. **Clone & Setup:**
-
+1.  **Clone & Configure:**
     ```bash
     git clone <your-repo-url>
+    cd Annoy-o-Matic
+    # Create .env file with DISCORD_TOKEN
     ```
 
+2.  **Run:**
     ```bash
-    cd annoybot
+    docker build -t annoy-o-matic .
+    docker run -d --env-file .env --name annoy-bot -v $(pwd)/data:/app annoy-o-matic
     ```
 
-    ```bash
-    python -m venv .venv
-    ```
+### Option B: Local Python
 
-    ```bash
-    # Activate venv on Winidows:
-    .venv\Scripts\activate
-
-    # Activate venv on macOS/Linux:
-    source .venv/bin/activate
-    ```
-
+1.  **Install:**
     ```bash
     pip install -r requirements.txt
     ```
 
-2. **Configure:**
-    - Create a `.env` file with your `DISCORD_TOKEN` (see `.env.example` if present).
-
-3. **Running**
-
+2.  **Run:**
     ```bash
     python main.py
     ```
 
-## 🛠 Usage
+## 🛠 Technical Upgrades (v2.0)
 
-- Use `/settarget` to add a user to the annoyance list.
-- Use `/setannoyancemessage` to set custom messages (semicolon-separated or quoted for messages with commas).
-- Use `/setannoyancereaction` to set custom emoji reactions (comma-separated).
-- Use `/setannoyancemethods` and `/setmessagemode` to configure how users are annoyed.
-- Use `/removetarget` to stop annoying a user.
-- Use `/listtargets` to view all annoyance targets and their settings.
-
-## ⚠️ Notes
-
-- The bot stores data in a local SQLite database (`annoy_o_matic.db`).
-- Do **not** commit your `.db` or `.env` files to git.
-- For production or multi-server use, consider a centralized database and process manager.
+- **Performance:** Database operations are now non-blocking. The bot won't freeze while reading/writing settings.
+- **Stability:** Added error handling and logging for easier debugging.
+- **Clean Code:** Refactored for better maintainability.
 
 ---
 
-Enjoy annoying your friends (with consent)!
+Enjoy annoying your friends (efficiently)!
