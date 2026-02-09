@@ -345,31 +345,62 @@ async def removetarget(interaction: discord.Interaction, user: discord.Member):
 async def listtargets(interaction: discord.Interaction):
     targets_data = db.get_all_targets()
     if not targets_data:
-        await interaction.response.send_message("No users are currently being annoyed.", ephemeral=True)
+        await interaction.response.send_message("No users are currently being annoyed. Peace and quiet! 😌", ephemeral=True)
         return
 
-    target_list_str = "Currently annoying the following users:\n"
-    for user_id, settings in targets_data.items():
+    embed = discord.Embed(
+        title="🎯 Annoyance Targets",
+        description=f"Currently tracking {len(targets_data)} target(s).",
+        color=discord.Color.red()
+    )
+
+    for i, (user_id, settings) in enumerate(targets_data.items()):
+        if i >= 24: # Discord limit is 25 fields (reserve one for truncated message if needed, or just stop at 24 to be safe + footer)
+            embed.set_footer(text="List truncated due to Discord limit.")
+            break
+
         try:
             user = await bot.fetch_user(user_id)
-            user_name = user.display_name
+            user_name = f"{user.display_name} ({user.name})"
         except discord.NotFound:
             user_name = f"Unknown User ({user_id})"
 
-        specific_replies_str = ", ".join(f"'{m}'" for m in settings['specific_reply']) if settings['specific_reply'] else 'None'
-        specific_reactions_str = ", ".join(settings['specific_reaction']) if settings['specific_reaction'] else 'None'
+        # Format Methods
+        methods_list = settings.get('annoy_methods', [])
+        methods = ", ".join(m.capitalize() for m in methods_list) if methods_list else "None"
 
+        # Format Mode
+        mode = settings.get('message_mode', 'both').replace("_", " ").title()
 
-        target_list_str += (
-            f"\n- **{user_name}** (`{user_id}`)\n"
-            f"  - Specific Messages: {specific_replies_str}\n"
-            f"  - Specific Reactions: {specific_reactions_str}\n"
-            f"  - Annoy Methods: {', '.join(settings['annoy_methods']) or 'None'}\n"
-            f"  - Message Mode: {settings['message_mode']}\n"
+        # Format Messages (intelligent preview)
+        replies = settings.get('specific_reply', [])
+        if not replies:
+            replies_str = "None"
+        elif len(replies) <= 3:
+            replies_str = ", ".join(f"'{m}'" for m in replies)
+        else:
+            replies_str = f"{len(replies)} defined"
+
+        # Format Reactions (intelligent preview)
+        reactions = settings.get('specific_reaction', [])
+        if not reactions:
+            reactions_str = "None"
+        elif len(reactions) <= 5:
+            reactions_str = " ".join(reactions)
+        else:
+            reactions_str = f"{len(reactions)} defined"
+
+        details = (
+            f"**Methods:** {methods}\n"
+            f"**Mode:** {mode}\n"
+            f"**Messages:** {replies_str}\n"
+            f"**Reactions:** {reactions_str}"
         )
-    if len(target_list_str) > 2000:
-        target_list_str = target_list_str[:1900] + "\n... (truncated)"
-    await interaction.response.send_message(target_list_str, ephemeral=True)
+
+        embed.add_field(name=f"👤 {user_name}", value=details, inline=True)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
 
 
 # --- Run the bot --- #
